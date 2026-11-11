@@ -23,7 +23,7 @@ class EmployeeManagementController extends Controller
         return view('employees.create');
     }
 
-    // Register a new employee & generate credentials
+    // Register a new employee & generate secure invitation
     public function store(Request $request)
     {
         $currentUser = auth()->user();
@@ -33,7 +33,7 @@ class EmployeeManagementController extends Controller
             'email'      => 'required|email|unique:users,email',
             'department' => 'required|string|max:255',
             'role'       => 'required|in:admin,manager,employee',
-            'password'   => 'nullable|string|min:6',
+            'password'   => 'nullable|string|min:8',
         ]);
 
         // Non-admin users cannot create an administrator account
@@ -41,19 +41,46 @@ class EmployeeManagementController extends Controller
             abort(403, 'Only administrators can create admin accounts.');
         }
 
-        $plainPassword = $data['password'] ?: Str::random(10);
+        $hasManualPassword = !empty($data['password']);
+        $invitationToken = $hasManualPassword ? null : Str::random(40);
+        $expiresAt = $hasManualPassword ? null : now()->addDays(3);
 
         $employee = User::create([
-            'name'       => $data['name'],
-            'email'      => $data['email'],
-            'department' => $data['department'],
-            'role'       => $data['role'],
-            'password'   => Hash::make($plainPassword),
-            'is_active'  => true,
+            'name'                  => $data['name'],
+            'email'                 => $data['email'],
+            'department'            => $data['department'],
+            'role'                  => $data['role'],
+            'password'              => Hash::make($hasManualPassword ? $data['password'] : Str::random(32)),
+            'is_active'             => $hasManualPassword,
+            'invitation_token'      => $invitationToken,
+            'invitation_expires_at' => $expiresAt,
         ]);
 
+        if ($invitationToken) {
+            $inviteUrl = route('register.invite', ['token' => $invitationToken]);
+            return redirect()->route('employees.index')
+                ->with('success', "Employee account created for {$employee->name}. An invitation link was generated (valid for 3 days): {$inviteUrl}")
+                ->with('invite_url', $inviteUrl);
+        }
+
         return redirect()->route('employees.index')
-            ->with('success', "Employee registered! Credentials for {$employee->name}: Email: {$employee->email} | Password: {$plainPassword}");
+            ->with('success', "Employee {$employee->name} registered and activated successfully.");
+    }
+
+    // Resend / regenerate invitation link for employee
+    public function resendInvitation(User $employee)
+    {
+        $token = Str::random(40);
+        $employee->update([
+            'invitation_token'      => $token,
+            'invitation_expires_at' => now()->addDays(3),
+            'is_active'             => false,
+        ]);
+
+        $inviteUrl = route('register.invite', ['token' => $token]);
+
+        return back()->with('success', "New invitation generated for {$employee->name}: {$inviteUrl}")
+            ->with('invite_url', $inviteUrl);
     }
 
     // Show edit form
@@ -84,7 +111,7 @@ class EmployeeManagementController extends Controller
             'email'      => 'required|email|unique:users,email,' . $employee->id,
             'department' => 'required|string|max:255',
             'role'       => 'required|in:admin,manager,employee',
-            'password'   => 'nullable|string|min:6',
+            'password'   => 'nullable|string|min:8',
         ]);
 
         // Non-admin users cannot promote accounts to admin

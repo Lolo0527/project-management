@@ -9,6 +9,27 @@ use Illuminate\Http\Request;
 
 class ProjectController extends Controller
 {
+    // Authorize that current user is the project manager or admin
+    protected function authorizeProjectManager(Project $project, bool $allowMembers = false): void
+    {
+        $user = auth()->user();
+
+        if ($user->role === 'admin') {
+            return;
+        }
+
+        if ($allowMembers) {
+            $isAuthorized = ($project->manager_id === $user->id) || $project->members->contains($user->id);
+            if (!$isAuthorized) {
+                abort(403, 'Unauthorized. You do not manage this project.');
+            }
+        } else {
+            if ($project->manager_id !== $user->id) {
+                abort(403, 'Unauthorized. You can only modify projects you manage.');
+            }
+        }
+    }
+
     // Show the project creation form
     public function create()
     {
@@ -32,6 +53,24 @@ class ProjectController extends Controller
             'team_members.*' => 'exists:users,id',
         ]);
 
+        // Validate that project manager has the correct role (manager or admin)
+        $manager = User::findOrFail($data['manager_id']);
+        if (!in_array($manager->role, ['manager', 'admin'])) {
+            return back()->withInput()->withErrors(['manager_id' => 'The assigned project manager must have the manager or admin role.']);
+        }
+
+        // Validate that all assigned team members are active employees
+        if (!empty($data['team_members'])) {
+            $validMembersCount = User::whereIn('id', $data['team_members'])
+                ->where('role', 'employee')
+                ->where('is_active', true)
+                ->count();
+
+            if ($validMembersCount !== count($data['team_members'])) {
+                return back()->withInput()->withErrors(['team_members' => 'All assigned team members must be active employees.']);
+            }
+        }
+
         $project = Project::create([
             'title'       => $data['title'],
             'description' => $data['description'] ?? null,
@@ -53,6 +92,8 @@ class ProjectController extends Controller
     // View project details and its tasks
     public function show(Project $project)
     {
+        $this->authorizeProjectManager($project, true);
+
         $project->load(['tasks.assignee', 'manager', 'members']);
 
         return view('manager.projects.show', compact('project'));
@@ -61,6 +102,8 @@ class ProjectController extends Controller
     // Show form to edit an existing project
     public function edit(Project $project)
     {
+        $this->authorizeProjectManager($project, false);
+
         $managers  = User::whereIn('role', ['manager', 'admin'])->where('is_active', true)->get();
         $employees = User::where('role', 'employee')->where('is_active', true)->get();
 
@@ -70,6 +113,8 @@ class ProjectController extends Controller
     // Update project attributes and team members
     public function update(Request $request, Project $project)
     {
+        $this->authorizeProjectManager($project, false);
+
         $data = $request->validate([
             'title'          => 'required|string|max:255',
             'description'    => 'nullable|string',
@@ -81,6 +126,33 @@ class ProjectController extends Controller
             'team_members'   => 'nullable|array',
             'team_members.*' => 'exists:users,id',
         ]);
+
+        // Validate that project manager has the correct role
+        $manager = User::findOrFail($data['manager_id']);
+        if (!in_array($manager->role, ['manager', 'admin'])) {
+            return back()->withInput()->withErrors(['manager_id' => 'The assigned project manager must have the manager or admin role.']);
+        }
+
+        // Validate that assigned team members are active employees
+        if (!empty($data['team_members'])) {
+            $validMembersCount = User::whereIn('id', $data['team_members'])
+                ->where('role', 'employee')
+                ->where('is_active', true)
+                ->count();
+
+            if ($validMembersCount !== count($data['team_members'])) {
+                return back()->withInput()->withErrors(['team_members' => 'All assigned team members must be active employees.']);
+            }
+        }
+
+        // Prevent direct project completion without completing/approving all tasks
+        if ($data['status'] === 'completed' && $project->status !== 'completed') {
+            if (!$project->allTasksApproved()) {
+                return back()->withInput()->withErrors([
+                    'status' => 'Cannot mark project as completed directly. All project tasks must first be completed and approved by the manager.'
+                ]);
+            }
+        }
 
         $oldDeadline = $project->deadline;
 
@@ -116,6 +188,8 @@ class ProjectController extends Controller
     // Update project deadline and notify team members
     public function updateDeadline(Request $request, Project $project)
     {
+        $this->authorizeProjectManager($project, false);
+
         $data = $request->validate([
             'deadline' => 'required|date',
         ]);
@@ -138,6 +212,8 @@ class ProjectController extends Controller
     // Close and complete project once all tasks are approved
     public function closeProject(Project $project)
     {
+        $this->authorizeProjectManager($project, false);
+
         if ($project->tasks()->count() === 0) {
             return back()->withErrors(['error' => 'Cannot close an empty project with no tasks.']);
         }

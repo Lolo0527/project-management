@@ -5,18 +5,31 @@ namespace App\Http\Controllers\Manager;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\User;
-use App\Notifications\TaskAssignedNotification;
 use Illuminate\Http\Request;
 
 class TaskController extends Controller
 {
+    // Authorize that current user is the project manager or admin
+    protected function authorizeProjectManager(Project $project): void
+    {
+        $user = auth()->user();
+
+        if ($user->role === 'admin') {
+            return;
+        }
+
+        if ($project->manager_id !== $user->id) {
+            abort(403, 'Unauthorized. You can only create tasks for projects you manage.');
+        }
+    }
+
     // Show task creation form for a project
     public function create(Project $project)
     {
-        // Prefer project's team members, fallback to active employees
-        $employees = $project->members->count() > 0 
-            ? $project->members 
-            : User::where('role', 'employee')->where('is_active', true)->get();
+        $this->authorizeProjectManager($project);
+
+        // Task assignees must belong to the project
+        $employees = $project->members()->where('is_active', true)->get();
 
         return view('manager.tasks.create', compact('project', 'employees'));
     }
@@ -24,6 +37,8 @@ class TaskController extends Controller
     // Save task & notify assigned employee
     public function store(Request $request, Project $project)
     {
+        $this->authorizeProjectManager($project);
+
         $data = $request->validate([
             'title'       => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -34,6 +49,19 @@ class TaskController extends Controller
             'status'      => 'required|in:pending,in_progress,completed',
             'attachment'  => 'nullable|file|max:10240',
         ]);
+
+        // Validate that task assignee belongs to the relevant project and is an active employee
+        if (!empty($data['assigned_to'])) {
+            $isProjectMember = $project->members()->where('users.id', $data['assigned_to'])->exists();
+            if (!$isProjectMember) {
+                return back()->withInput()->withErrors(['assigned_to' => 'The assigned employee must be a member of this project.']);
+            }
+
+            $assignee = User::find($data['assigned_to']);
+            if (!$assignee || !$assignee->is_active || $assignee->role !== 'employee') {
+                return back()->withInput()->withErrors(['assigned_to' => 'The assigned employee must be an active employee account.']);
+            }
+        }
 
         $attachmentPath = null;
         if ($request->hasFile('attachment')) {

@@ -14,33 +14,43 @@ class ReportController extends Controller
     public function index(Request $request)
     {
         $today = now()->toDateString();
+        $user = auth()->user();
+        $isManager = $user->role === 'manager';
 
-        // 1. Company-wide Metrics
-        $totalCompletedTasks = Task::where('status', 'completed')->count();
-        $totalPendingTasks   = Task::where('status', '!=', 'completed')->count();
-        $totalOverdueTasks   = Task::where('status', '!=', 'completed')->where('due_date', '<', $today)->count();
-        $completedProjects   = Project::where('status', 'completed')->count();
-        $totalProjects       = Project::count();
+        // Scope queries to manager's projects or company-wide for admins
+        $projectQuery = $isManager ? Project::where('manager_id', $user->id) : Project::query();
+        $taskQuery = $isManager 
+            ? Task::whereHas('project', fn($q) => $q->where('manager_id', $user->id)) 
+            : Task::query();
+
+        // 1. Metrics
+        $totalCompletedTasks = (clone $taskQuery)->where('status', 'completed')->count();
+        $totalPendingTasks   = (clone $taskQuery)->where('status', '!=', 'completed')->count();
+        $totalOverdueTasks   = (clone $taskQuery)->where('status', '!=', 'completed')->where('due_date', '<', $today)->count();
+        $completedProjects   = (clone $projectQuery)->where('status', 'completed')->count();
+        $totalProjects       = (clone $projectQuery)->count();
 
         // 2. Employee Workload & Productivity Report
         $employees = User::where('role', 'employee')
             ->where('is_active', true)
             ->withCount([
-                'tasks as assigned_count',
-                'tasks as completed_count' => fn($q) => $q->where('status', 'completed'),
-                'tasks as pending_count'   => fn($q) => $q->where('status', '!=', 'completed'),
-                'tasks as overdue_count'   => fn($q) => $q->where('status', '!=', 'completed')->where('due_date', '<', $today),
+                'tasks as assigned_count' => fn($q) => $isManager ? $q->whereHas('project', fn($pq) => $pq->where('manager_id', $user->id)) : $q,
+                'tasks as completed_count' => fn($q) => ($isManager ? $q->whereHas('project', fn($pq) => $pq->where('manager_id', $user->id)) : $q)->where('status', 'completed'),
+                'tasks as pending_count'   => fn($q) => ($isManager ? $q->whereHas('project', fn($pq) => $pq->where('manager_id', $user->id)) : $q)->where('status', '!=', 'completed'),
+                'tasks as overdue_count'   => fn($q) => ($isManager ? $q->whereHas('project', fn($pq) => $pq->where('manager_id', $user->id)) : $q)->where('status', '!=', 'completed')->where('due_date', '<', $today),
             ])
             ->get()
+            ->filter(fn($emp) => !$isManager || $emp->assigned_count > 0)
             ->map(function ($emp) {
                 $emp->completion_rate = $emp->assigned_count > 0 
                     ? round(($emp->completed_count / $emp->assigned_count) * 100) 
                     : 0;
                 return $emp;
-            });
+            })
+            ->values();
 
         // 3. Project Completion Percentages
-        $projects = Project::with('manager')
+        $projects = (clone $projectQuery)->with('manager')
             ->withCount([
                 'tasks',
                 'tasks as completed_tasks_count' => fn($q) => $q->where('status', 'completed'),

@@ -11,11 +11,11 @@
         margin-top: 20px;
     }
     .kanban-column {
-        background: #f4f5f7;
+        background: var(--panel-muted-bg, #f4f5f7);
         border-radius: 8px;
         padding: 16px;
         min-height: 480px;
-        border: 1px solid #dfe1e6;
+        border: 1px solid var(--panel-muted-border, #dfe1e6);
     }
     .column-header {
         display: flex;
@@ -23,6 +23,7 @@
         align-items: center;
         margin-bottom: 15px;
         font-weight: bold;
+        color: var(--pico-color);
     }
     .task-list {
         min-height: 400px;
@@ -31,13 +32,17 @@
         gap: 12px;
     }
     .kanban-card {
-        background: #ffffff;
+        background: var(--pico-card-background-color, #ffffff);
         border-radius: 6px;
         padding: 14px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.12);
         cursor: grab;
         border-left: 4px solid #9e9e9e;
+        border-top: 1px solid var(--pico-muted-border-color);
+        border-right: 1px solid var(--pico-muted-border-color);
+        border-bottom: 1px solid var(--pico-muted-border-color);
         transition: transform 0.15s, box-shadow 0.15s;
+        color: var(--pico-color);
     }
     .kanban-card:active {
         cursor: grabbing;
@@ -45,9 +50,9 @@
     .kanban-card.dragging {
         opacity: 0.4;
     }
-    .kanban-card.priority-high { border-left-color: #d32f2f; }
-    .kanban-card.priority-medium { border-left-color: #fbc02d; }
-    .kanban-card.priority-low { border-left-color: #388e3c; }
+    .kanban-card.priority-high { border-left-color: #ef4444; }
+    .kanban-card.priority-medium { border-left-color: #f59e0b; }
+    .kanban-card.priority-low { border-left-color: #10b981; }
     .badge {
         font-size: 0.75rem;
         padding: 2px 6px;
@@ -55,8 +60,8 @@
         font-weight: 600;
     }
     .badge-count {
-        background: #ebecf0;
-        color: #172b4d;
+        background: var(--pico-muted-border-color, #ebecf0);
+        color: var(--pico-color, #172b4d);
         border-radius: 12px;
         padding: 2px 8px;
         font-size: 0.8rem;

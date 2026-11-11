@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeManagementController;
 use App\Http\Controllers\KanbanController;
@@ -13,7 +14,7 @@ use App\Http\Controllers\Manager\ReportController;
 use App\Http\Controllers\Manager\DashboardController as ManagerDashboardController;
 use Illuminate\Support\Facades\Route;
 
-// 1. Guest & Home Routes
+// 1. Root & Guest Redirection
 Route::get('/', function () {
     if (auth()->check()) {
         return match (auth()->user()->role) {
@@ -23,14 +24,29 @@ Route::get('/', function () {
             default    => redirect()->route('login'),
         };
     }
-    return app(AuthController::class)->showLogin();
-})->name('login');
-
-Route::middleware('guest')->group(function () {
-    Route::post('/login', [AuthController::class, 'login']);
+    return redirect()->route('login');
 });
 
-// 2. Shared Authenticated Routes (Logout, Kanban, Task Details, Workflow & Notifications)
+// 2. Guest Authentication & Registration Routes
+Route::middleware('guest')->group(function () {
+    // Dedicated Login Routes
+    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [AuthController::class, 'login']);
+
+    // Registration & Invitation Routes
+    Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->name('register');
+    Route::post('/register', [RegisterController::class, 'register'])->name('register.submit');
+    Route::get('/register/invite/{token}', [RegisterController::class, 'showInviteForm'])->name('register.invite');
+    Route::post('/register/invite/{token}', [RegisterController::class, 'registerWithInvite'])->name('register.invite.submit');
+
+    // Forgot & Reset Password Routes
+    Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
+    Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])->name('password.email');
+    Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword'])->name('password.reset');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
+});
+
+// 3. Shared Authenticated Routes (Logout, Kanban, Task Details, Workflow & Notifications)
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
@@ -53,24 +69,25 @@ Route::middleware('auth')->group(function () {
     Route::post('/notifications/mark-all-read', [NotificationCenterController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
 });
 
-// 3. Employee Management Routes (Admin & Manager)
+// 4. Employee Management Routes (Admin & Manager)
 Route::middleware(['auth', 'role:admin,manager'])->prefix('employees')->name('employees.')->group(function () {
     Route::get('/', [EmployeeManagementController::class, 'index'])->name('index');
     Route::get('/create', [EmployeeManagementController::class, 'create'])->name('create');
     Route::post('/', [EmployeeManagementController::class, 'store'])->name('store');
+    Route::post('/{employee}/resend-invite', [EmployeeManagementController::class, 'resendInvitation'])->name('resend-invite');
     Route::get('/{employee}/edit', [EmployeeManagementController::class, 'edit'])->name('edit');
     Route::put('/{employee}', [EmployeeManagementController::class, 'update'])->name('update');
     Route::patch('/{employee}/toggle-status', [EmployeeManagementController::class, 'toggleStatus'])->name('toggle-status');
 });
 
-// 4. Admin Routes (Admin Only)
+// 5. Admin Routes (Admin Only)
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'admin'])->name('dashboard');
     Route::get('/register-employee', [EmployeeManagementController::class, 'create'])->name('register');
     Route::post('/register-employee', [EmployeeManagementController::class, 'store'])->name('register.store');
 });
 
-// 5. Manager & Admin Project Routes
+// 6. Manager & Admin Project Routes
 Route::middleware(['auth', 'role:manager,admin'])->prefix('manager')->name('manager.')->group(function () {
     Route::get('/dashboard', [ManagerDashboardController::class, 'index'])->name('dashboard');
 
@@ -91,7 +108,7 @@ Route::middleware(['auth', 'role:manager,admin'])->prefix('manager')->name('mana
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
 });
 
-// 6. Employee Routes (Employee Only)
+// 7. Employee Routes (Employee Only)
 Route::middleware(['auth', 'role:employee'])->prefix('employee')->name('employee.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'employee'])->name('dashboard');
 });

@@ -7,38 +7,38 @@
     
     <!-- Project & Priority Badges -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <span style="font-size: 0.75rem; color: #1976d2; font-weight: 600;">
+        <span style="font-size: 0.75rem; color: var(--brand-primary, #2563eb); font-weight: 700;">
             {{ $task->project->title ?? 'General' }}
         </span>
-        <div>
+        <div style="display: flex; gap: 4px; align-items: center;">
             @if($task->is_approved)
-                <span class="badge" style="background: #c8e6c9; color: #2e7d32;">✓ Approved</span>
+                <span class="badge" style="background: var(--badge-approved-bg, rgba(34, 197, 94, 0.2)); color: var(--badge-approved-text, #16a34a);">✓ Approved</span>
             @endif
-            <span class="badge" style="background: {{ $task->priority === 'high' ? '#ffebee' : ($task->priority === 'medium' ? '#fffde7' : '#e8f5e9') }}; color: {{ $task->priority === 'high' ? '#c62828' : ($task->priority === 'medium' ? '#f57f17' : '#2e7d32') }};">
+            <span class="badge" style="background: {{ $task->priority === 'high' ? 'rgba(239, 68, 68, 0.15)' : ($task->priority === 'medium' ? 'rgba(234, 179, 8, 0.15)' : 'rgba(34, 197, 94, 0.15)') }}; color: {{ $task->priority === 'high' ? '#ef4444' : ($task->priority === 'medium' ? '#eab308' : '#22c55e') }};">
                 {{ ucfirst($task->priority ?? 'medium') }}
             </span>
         </div>
     </div>
 
     <!-- Task Title & Description -->
-    <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 6px; color: #172b4d;">
+    <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 6px; color: var(--pico-color);">
         {{ $task->title }}
     </div>
     @if($task->description)
-        <p style="font-size: 0.8rem; color: #5e6c84; margin-bottom: 10px; line-height: 1.3;">
+        <p style="font-size: 0.8rem; color: var(--pico-muted-color); margin-bottom: 10px; line-height: 1.35;">
             {{ Str::limit($task->description, 80) }}
         </p>
     @endif
 
     <!-- Assignee & Due Date -->
-    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: #5e6c84; margin-bottom: 8px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--pico-muted-color); margin-bottom: 8px;">
         <span>👤 {{ $task->assignee->name ?? 'Unassigned' }}</span>
         <span>📅 {{ $task->due_date }}</span>
     </div>
 
     <!-- Footer: Discussion & Quick Move -->
-    <div style="margin-top: 8px; border-top: 1px dashed #dfe1e6; padding-top: 6px; display: flex; justify-content: space-between; align-items: center;">
-        <a href="{{ route('tasks.show', $task) }}" style="font-size: 0.75rem; font-weight: 600;">
+    <div style="margin-top: 8px; border-top: 1px dashed var(--pico-muted-border-color); padding-top: 6px; display: flex; justify-content: space-between; align-items: center;">
+        <a href="{{ route('tasks.show', $task) }}" style="font-size: 0.75rem; font-weight: 600; text-decoration: none;">
             💬 Discussion ({{ $task->comments->count() }})
         </a>
         <select onchange="handleStatusSelect(this, '{{ $task->id }}')" style="width: auto; font-size: 0.75rem; padding: 2px 6px; margin: 0; height: auto;">

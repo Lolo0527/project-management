@@ -19,16 +19,16 @@
             <h2 style="margin: 5px 0 0 0;">{{ $task->title }}</h2>
         </div>
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <mark style="background: {{ $task->priority === 'high' ? '#ffcdd2' : ($task->priority === 'medium' ? '#fff9c4' : '#e0e0e0') }};">
+            <mark style="background: {{ $task->priority === 'high' ? 'rgba(239, 68, 68, 0.15)' : ($task->priority === 'medium' ? 'rgba(234, 179, 8, 0.15)' : 'rgba(34, 197, 94, 0.15)') }}; color: {{ $task->priority === 'high' ? '#ef4444' : ($task->priority === 'medium' ? '#eab308' : '#22c55e') }};">
                 Priority: {{ ucfirst($task->priority ?? 'medium') }}
             </mark>
 
             @if($task->is_approved)
-                <mark style="background: #c8e6c9; color: #1b5e20;">✓ Approved by Manager</mark>
+                <mark style="background: var(--badge-approved-bg); color: var(--badge-approved-text);">✓ Approved by Manager</mark>
             @elseif($task->status === 'completed')
-                <mark style="background: #ffe0b2; color: #e65100;">⏳ Submitted for Review</mark>
+                <mark style="background: var(--badge-review-bg); color: var(--badge-review-text);">⏳ Submitted for Review</mark>
             @else
-                <mark style="background: #bbdefb; color: #0d47a1;">{{ ucfirst(str_replace('_', ' ', $task->status)) }}</mark>
+                <mark style="background: var(--badge-working-bg); color: var(--badge-working-text);">{{ ucfirst(str_replace('_', ' ', $task->status)) }}</mark>
             @endif
 
             <!-- Quick Status Selector -->
@@ -67,7 +67,7 @@
 
     <!-- Workflow Actions: Submission & Review -->
     <hr>
-    <div style="background: #fafafa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 14px; margin-top: 10px;">
+    <div style="background: var(--panel-muted-bg); border: 1px solid var(--panel-muted-border); border-radius: 6px; padding: 14px; margin-top: 10px;">
         <h4 style="margin-top: 0; margin-bottom: 8px;">Review & Approval Workflow</h4>
 
         @if(auth()->user()->id === $task->assigned_to && !$task->is_approved)
@@ -127,20 +127,20 @@
     <!-- Message Stream -->
     <div style="display: flex; flex-direction: column; gap: 16px; margin: 20px 0;">
         @forelse($task->comments as $comment)
-            <div style="background: {{ $comment->user_id === auth()->id() ? '#f0f4ff' : '#f9f9f9' }}; border: 1px solid #e0e0e0; border-radius: 8px; padding: 14px;">
+            <div style="background: {{ $comment->user_id === auth()->id() ? 'var(--panel-muted-bg)' : 'var(--pico-card-background-color)' }}; border: 1px solid var(--pico-muted-border-color); border-radius: 8px; padding: 14px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                     <div>
                         <strong>{{ $comment->user->name ?? 'System User' }}</strong>
-                        <small style="color: gray; margin-left: 6px;">({{ ucfirst($comment->user->role ?? 'user') }})</small>
+                        <small style="color: var(--pico-muted-color); margin-left: 6px;">({{ ucfirst($comment->user->role ?? 'user') }})</small>
                     </div>
-                    <small style="color: gray;">{{ $comment->created_at->diffForHumans() }}</small>
+                    <small style="color: var(--pico-muted-color);">{{ $comment->created_at->diffForHumans() }}</small>
                 </div>
 
                 <div style="white-space: pre-wrap; font-size: 0.95rem; margin-bottom: 8px;">{{ $comment->content }}</div>
 
                 <!-- Attachment (PDF / Image Preview / Download) -->
                 @if($comment->attachment_path)
-                    <div style="margin-top: 8px; padding: 8px 12px; background: #ffffff; border-radius: 6px; border: 1px dashed #cccccc; display: inline-block;">
+                    <div style="margin-top: 8px; padding: 8px 12px; background: var(--pico-background-color); border-radius: 6px; border: 1px dashed var(--pico-muted-border-color); display: inline-block;">
                         <a href="{{ asset('storage/' . $comment->attachment_path) }}" target="_blank" style="text-decoration: none;">
                             📎 <strong>{{ $comment->attachment_name ?? 'Download Attachment' }}</strong>
                         </a>

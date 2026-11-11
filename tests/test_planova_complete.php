@@ -140,7 +140,7 @@ $rUpdateProj = sendRequest($app, $kernel, $manager, 'PUT', "/manager/projects/{$
     'manager_id' => $manager->id,
     'priority' => 'medium',
     'status' => 'active',
-    'team_members' => [$employee1->id],
+    'team_members' => [$employee1->id, $employee2->id],
 ]);
 $testProject->refresh();
 assertCheck(
